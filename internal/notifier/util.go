@@ -53,6 +53,14 @@ func formatNameAndDescription(event events.Event) (string, string) {
 	return name, desc
 }
 
+// generateCommitStatusID returns a unique ID per cluster based on the Provider UID,
+// involved object kind and name.
+func generateCommitStatusID(providerUID string, event events.Event) string {
+	uidParts := strings.Split(providerUID, "-")
+	id := fmt.Sprintf("%s/%s/%s", event.InvolvedObject.Kind, event.InvolvedObject.Name, uidParts[0])
+	return strings.ToLower(id)
+}
+
 func splitCamelcase(src string) (entries []string) {
 	// don't split invalid utf8
 	if !utf8.ValidString(src) {

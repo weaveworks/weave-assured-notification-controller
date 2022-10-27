@@ -31,26 +31,26 @@ import (
 )
 
 func TestNewGitLabBasic(t *testing.T) {
-	g, err := NewGitLab("https://gitlab.com/foo/bar", "foobar", nil)
+	g, err := NewGitLab("0c9c2e41-d2f9-4f9b-9c41-bebc1984d67a", "https://gitlab.com/foo/bar", "foobar", nil)
 	assert.Nil(t, err)
 	assert.Equal(t, g.Id, "foo/bar")
 }
 
 func TestNewGitLabSubgroups(t *testing.T) {
-	g, err := NewGitLab("https://gitlab.com/foo/bar/baz", "foobar", nil)
+	g, err := NewGitLab("0c9c2e41-d2f9-4f9b-9c41-bebc1984d67a", "https://gitlab.com/foo/bar/baz", "foobar", nil)
 	assert.Nil(t, err)
 	assert.Equal(t, g.Id, "foo/bar/baz")
 }
 
 func TestNewGitLabSelfHosted(t *testing.T) {
-	g, err := NewGitLab("https://example.com/foo/bar", "foo:bar", nil)
+	g, err := NewGitLab("0c9c2e41-d2f9-4f9b-9c41-bebc1984d67a", "https://example.com/foo/bar", "foo:bar", nil)
 	assert.Nil(t, err)
 	assert.Equal(t, g.Id, "foo/bar")
 	assert.Equal(t, g.Client.BaseURL().Host, "example.com")
 }
 
 func TestNewGitLabEmptyToken(t *testing.T) {
-	_, err := NewGitLab("https://gitlab.com/foo/bar", "", nil)
+	_, err := NewGitLab("0c9c2e41-d2f9-4f9b-9c41-bebc1984d67a", "https://gitlab.com/foo/bar", "", nil)
 	assert.NotNil(t, err)
 }
 
@@ -72,7 +72,7 @@ func Fuzz_GitLab(f *testing.F) {
 		var cert x509.CertPool
 		_ = fuzz.NewConsumer(seed).GenerateStruct(&cert)
 
-		gitLab, err := NewGitLab(fmt.Sprintf("%s/%s", ts.URL, urlSuffix), token, &cert)
+		gitLab, err := NewGitLab("0c9c2e41-d2f9-4f9b-9c41-bebc1984d67a", fmt.Sprintf("%s/%s", ts.URL, urlSuffix), token, &cert)
 		if err != nil {
 			return
 		}
