@@ -32,19 +32,19 @@ import (
 )
 
 func TestNewBitbucketBasic(t *testing.T) {
-	b, err := NewBitbucket("https://bitbucket.org/foo/bar", "foo:bar", nil)
+	b, err := NewBitbucket("0c9c2e41-d2f9-4f9b-9c41-bebc1984d67a", "https://bitbucket.org/foo/bar", "foo:bar", nil)
 	assert.Nil(t, err)
 	assert.Equal(t, b.Owner, "foo")
 	assert.Equal(t, b.Repo, "bar")
 }
 
 func TestNewBitbucketInvalidUrl(t *testing.T) {
-	_, err := NewBitbucket("https://bitbucket.org/foo/bar/baz", "foo:bar", nil)
+	_, err := NewBitbucket("0c9c2e41-d2f9-4f9b-9c41-bebc1984d67a", "https://bitbucket.org/foo/bar/baz", "foo:bar", nil)
 	assert.NotNil(t, err)
 }
 
 func TestNewBitbucketInvalidToken(t *testing.T) {
-	_, err := NewBitbucket("https://bitbucket.org/foo/bar", "bar", nil)
+	_, err := NewBitbucket("0c9c2e41-d2f9-4f9b-9c41-bebc1984d67a", "https://bitbucket.org/foo/bar", "bar", nil)
 	assert.NotNil(t, err)
 }
 
@@ -65,7 +65,7 @@ func Fuzz_Bitbucket(f *testing.F) {
 		var cert x509.CertPool
 		_ = fuzz.NewConsumer(seed).GenerateStruct(&cert)
 
-		bitbucket, err := NewBitbucket(fmt.Sprintf("%s/%s", ts.URL, urlSuffix), token, &cert)
+		bitbucket, err := NewBitbucket("0c9c2e41-d2f9-4f9b-9c41-bebc1984d67a", fmt.Sprintf("%s/%s", ts.URL, urlSuffix), token, &cert)
 		if err != nil {
 			return
 		}
