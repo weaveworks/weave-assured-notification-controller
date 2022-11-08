@@ -35,8 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 
+	eventv1 "github.com/fluxcd/pkg/apis/event/v1beta1"
 	"github.com/fluxcd/pkg/masktoken"
-	"github.com/fluxcd/pkg/runtime/events"
 
 	apiv1 "github.com/fluxcd/notification-controller/api/v1beta2"
 	"github.com/fluxcd/notification-controller/internal/notifier"
@@ -53,7 +53,7 @@ func (s *EventServer) handleEvent() func(w http.ResponseWriter, r *http.Request)
 		}
 		defer r.Body.Close()
 
-		event := &events.Event{}
+		event := &eventv1.Event{}
 		err = json.Unmarshal(body, event)
 		if err != nil {
 			s.logger.Error(err, "decoding the request body failed")
@@ -264,7 +264,7 @@ func (s *EventServer) handleEvent() func(w http.ResponseWriter, r *http.Request)
 				}
 			}
 
-			go func(n notifier.Interface, e events.Event) {
+			go func(n notifier.Interface, e eventv1.Event) {
 				ctx, cancel := context.WithTimeout(context.Background(), provider.GetTimeout())
 				defer cancel()
 				if err := n.Post(ctx, e); err != nil {
@@ -286,11 +286,11 @@ func (s *EventServer) handleEvent() func(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (s *EventServer) eventMatchesAlert(ctx context.Context, event *events.Event, source apiv1.CrossNamespaceObjectReference, severity string) bool {
+func (s *EventServer) eventMatchesAlert(ctx context.Context, event *eventv1.Event, source apiv1.CrossNamespaceObjectReference, severity string) bool {
 	if event.InvolvedObject.Namespace == source.Namespace &&
 		event.InvolvedObject.Kind == source.Kind {
 		if event.Severity == severity ||
-			severity == events.EventSeverityInfo {
+			severity == eventv1.EventSeverityInfo {
 
 			labelMatch := true
 			if source.Name == "*" && source.MatchLabels != nil {
@@ -326,21 +326,13 @@ func (s *EventServer) eventMatchesAlert(ctx context.Context, event *events.Event
 	return false
 }
 
-// TODO: move the metadata filtering function to fluxcd/pkg/runtime/events
 // cleanupMetadata removes metadata entries which are not used for alerting
-func cleanupMetadata(event *events.Event) {
+func cleanupMetadata(event *eventv1.Event) {
 	group := event.InvolvedObject.GetObjectKind().GroupVersionKind().Group
-	excludeList := []string{fmt.Sprintf("%s/checksum", group)}
+	excludeList := []string{fmt.Sprintf("%s/%s", group, eventv1.MetaChecksumKey)}
 
 	meta := make(map[string]string)
-
 	if event.Metadata != nil && len(event.Metadata) > 0 {
-		// For backwards compatibility, include the revision without a group prefix
-		revisionKey := "revision"
-		if rev, ok := event.Metadata[revisionKey]; ok {
-			meta[revisionKey] = rev
-		}
-
 		// Filter other meta based on group prefix, while filtering out excludes
 		for key, val := range event.Metadata {
 			if strings.HasPrefix(key, group) && !inList(excludeList, key) {

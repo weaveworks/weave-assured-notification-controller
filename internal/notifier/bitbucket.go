@@ -26,8 +26,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/fluxcd/pkg/runtime/events"
 	"github.com/ktrysmt/go-bitbucket"
+
+	eventv1 "github.com/fluxcd/pkg/apis/event/v1beta1"
+	"github.com/fluxcd/pkg/apis/meta"
 )
 
 // Bitbucket is a Bitbucket Server notifier.
@@ -83,13 +85,13 @@ func NewBitbucket(providerUID string, addr string, token string, certPool *x509.
 }
 
 // Post Bitbucket commit status
-func (b Bitbucket) Post(ctx context.Context, event events.Event) error {
+func (b Bitbucket) Post(ctx context.Context, event eventv1.Event) error {
 	// Skip progressing events
-	if event.Reason == "Progressing" {
+	if event.HasReason(meta.ProgressingReason) {
 		return nil
 	}
 
-	revString, ok := event.Metadata["revision"]
+	revString, ok := event.Metadata[eventv1.MetaRevisionKey]
 	if !ok {
 		return errors.New("missing revision metadata")
 	}
@@ -158,9 +160,9 @@ func duplicateBitbucketStatus(statuses interface{}, status *bitbucket.CommitStat
 
 func toBitbucketState(severity string) (string, error) {
 	switch severity {
-	case events.EventSeverityInfo:
+	case eventv1.EventSeverityInfo:
 		return "SUCCESSFUL", nil
-	case events.EventSeverityError:
+	case eventv1.EventSeverityError:
 		return "FAILED", nil
 	default:
 		return "", errors.New("can't convert to bitbucket state")
