@@ -27,7 +27,9 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/fluxcd/pkg/apis/meta"
@@ -183,4 +185,202 @@ func TestProviderReconciler_Reconcile(t *testing.T) {
 			return apierrors.IsNotFound(err)
 		}, timeout, time.Second).Should(BeTrue())
 	})
+}
+
+func TestValidateCredentials(t *testing.T) {
+	secretName := "foo-secret"
+	certSecretName := "cert-secret"
+	tests := []struct {
+		name           string
+		providerSpec   *apiv1.ProviderSpec
+		secretData     map[string][]byte
+		certSecretData map[string][]byte
+		wantErr        bool
+	}{
+		{
+			name: "no address, no secret ref",
+			providerSpec: &apiv1.ProviderSpec{
+				Type: "slack",
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid address, no secret ref",
+			providerSpec: &apiv1.ProviderSpec{
+				Type:    "slack",
+				Address: "https://example.com",
+			},
+		},
+		{
+			name: "reference to non-existing secret ref",
+			providerSpec: &apiv1.ProviderSpec{
+				Type:      "slack",
+				SecretRef: &meta.LocalObjectReference{Name: "foo"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "reference to secret with valid address, proxy, headers",
+			providerSpec: &apiv1.ProviderSpec{
+				Type:      "slack",
+				SecretRef: &meta.LocalObjectReference{Name: secretName},
+			},
+			secretData: map[string][]byte{
+				"address": []byte("https://example.com"),
+				"proxy":   []byte("https://exampleproxy.com"),
+				"headers": []byte(`foo: bar`),
+			},
+		},
+		{
+			name: "reference to secret with invalid address",
+			providerSpec: &apiv1.ProviderSpec{
+				Type:      "slack",
+				SecretRef: &meta.LocalObjectReference{Name: secretName},
+			},
+			secretData: map[string][]byte{
+				"address": []byte("https://example.com|"),
+			},
+			wantErr: true,
+		},
+		{
+			name: "reference to secret with invalid proxy",
+			providerSpec: &apiv1.ProviderSpec{
+				Type:      "slack",
+				SecretRef: &meta.LocalObjectReference{Name: secretName},
+			},
+			secretData: map[string][]byte{
+				"address": []byte("https://example.com"),
+				"proxy":   []byte("https://exampleproxy.com|"),
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid headers in secret reference",
+			providerSpec: &apiv1.ProviderSpec{
+				Type:      "slack",
+				SecretRef: &meta.LocalObjectReference{Name: secretName},
+			},
+			secretData: map[string][]byte{
+				"address": []byte("https://example.com"),
+				"headers": []byte("foo"),
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid spec address overridden by valid secret ref address",
+			providerSpec: &apiv1.ProviderSpec{
+				Type:      "slack",
+				SecretRef: &meta.LocalObjectReference{Name: secretName},
+				Address:   "https://example.com|",
+			},
+			secretData: map[string][]byte{
+				"address": []byte("https://example.com"),
+			},
+		},
+		{
+			name: "invalid spec proxy overridden by valid secret ref proxy",
+			providerSpec: &apiv1.ProviderSpec{
+				Type:      "slack",
+				SecretRef: &meta.LocalObjectReference{Name: secretName},
+				Proxy:     "https://example.com|",
+			},
+			secretData: map[string][]byte{
+				"address": []byte("https://example.com"),
+				"proxy":   []byte("https://example.com"),
+			},
+		},
+		{
+			name: "reference to non-existing cert secret",
+			providerSpec: &apiv1.ProviderSpec{
+				Type:          "slack",
+				Address:       "https://example.com",
+				CertSecretRef: &meta.LocalObjectReference{Name: "some-secret"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "reference to cert secret without caFile data",
+			providerSpec: &apiv1.ProviderSpec{
+				Type:          "slack",
+				Address:       "https://example.com",
+				CertSecretRef: &meta.LocalObjectReference{Name: certSecretName},
+			},
+			certSecretData: map[string][]byte{
+				"aaa": []byte("bbb"),
+			},
+			wantErr: true,
+		},
+		{
+			name: "cert secret reference with valid CA",
+			providerSpec: &apiv1.ProviderSpec{
+				Type:          "slack",
+				Address:       "https://example.com",
+				CertSecretRef: &meta.LocalObjectReference{Name: certSecretName},
+			},
+			certSecretData: map[string][]byte{
+				// Based on https://pkg.go.dev/crypto/tls#X509KeyPair example.
+				"caFile": []byte(`-----BEGIN CERTIFICATE-----
+MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
+DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
+EjEQMA4GA1UEChMHQWNtZSBDbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABD0d
+7VNhbWvZLWPuj/RtHFjvtJBEwOkhbN/BnnE8rnZR8+sbwnc/KhCk3FhnpHZnQz7B
+5aETbbIgmuvewdjvSBSjYzBhMA4GA1UdDwEB/wQEAwICpDATBgNVHSUEDDAKBggr
+BgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MCkGA1UdEQQiMCCCDmxvY2FsaG9zdDo1
+NDUzgg4xMjcuMC4wLjE6NTQ1MzAKBggqhkjOPQQDAgNIADBFAiEA2zpJEPQyz6/l
+Wf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
+6MF9+Yw1Yy0t
+-----END CERTIFICATE-----`),
+			},
+		},
+		{
+			name: "cert secret reference with invalid CA",
+			providerSpec: &apiv1.ProviderSpec{
+				Type:          "slack",
+				Address:       "https://example.com",
+				CertSecretRef: &meta.LocalObjectReference{Name: certSecretName},
+			},
+			certSecretData: map[string][]byte{
+				"caFile": []byte(`aaaaa`),
+			},
+			wantErr: true,
+		},
+		{
+			name: "unsupported provider",
+			providerSpec: &apiv1.ProviderSpec{
+				Type:    "foo",
+				Address: "https://example.com",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+
+			builder := fakeclient.NewClientBuilder().WithScheme(testEnv.GetScheme())
+			if tt.secretData != nil {
+				secret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: secretName},
+					Data:       tt.secretData,
+				}
+				builder.WithObjects(secret)
+			}
+			if tt.certSecretData != nil {
+				secret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: certSecretName},
+					Data:       tt.certSecretData,
+				}
+				builder.WithObjects(secret)
+			}
+			r := &ProviderReconciler{
+				Client:        builder.Build(),
+				EventRecorder: record.NewFakeRecorder(32),
+			}
+			provider := &apiv1.Provider{Spec: *tt.providerSpec}
+
+			err := r.validateCredentials(context.TODO(), provider)
+			g.Expect(err != nil).To(Equal(tt.wantErr))
+		})
+	}
 }

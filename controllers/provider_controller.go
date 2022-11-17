@@ -203,6 +203,10 @@ func (r *ProviderReconciler) validateCredentials(ctx context.Context, provider *
 
 		if a, ok := secret.Data["address"]; ok {
 			address = string(a)
+			_, err := url.Parse(address)
+			if err != nil {
+				return fmt.Errorf("invalid address in secret '%s': %w", address, err)
+			}
 		}
 
 		if p, ok := secret.Data["password"]; ok {
@@ -211,6 +215,10 @@ func (r *ProviderReconciler) validateCredentials(ctx context.Context, provider *
 
 		if p, ok := secret.Data["proxy"]; ok {
 			proxy = string(p)
+			_, err := url.Parse(proxy)
+			if err != nil {
+				return fmt.Errorf("invalid proxy in secret '%s': %w", proxy, err)
+			}
 		}
 
 		if t, ok := secret.Data["token"]; ok {
@@ -222,7 +230,7 @@ func (r *ProviderReconciler) validateCredentials(ctx context.Context, provider *
 		}
 
 		if h, ok := secret.Data["headers"]; ok {
-			err := yaml.Unmarshal(h, headers)
+			err := yaml.Unmarshal(h, &headers)
 			if err != nil {
 				return fmt.Errorf("failed to read headers from secret, error: %w", err)
 			}
