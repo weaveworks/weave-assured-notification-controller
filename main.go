@@ -123,30 +123,6 @@ func main() {
 
 	metricsH := helper.MustMakeMetrics(mgr)
 
-	if err = (&controllers.ProviderReconciler{
-		Client:         mgr.GetClient(),
-		ControllerName: controllerName,
-		Metrics:        metricsH,
-		EventRecorder:  mgr.GetEventRecorderFor(controllerName),
-	}).SetupWithManagerAndOptions(mgr, controllers.ProviderReconcilerOptions{
-		MaxConcurrentReconciles: concurrent,
-		RateLimiter:             helper.GetRateLimiter(rateLimiterOptions),
-	}); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Provider")
-		os.Exit(1)
-	}
-	if err = (&controllers.AlertReconciler{
-		Client:         mgr.GetClient(),
-		ControllerName: controllerName,
-		Metrics:        metricsH,
-		EventRecorder:  mgr.GetEventRecorderFor(controllerName),
-	}).SetupWithManagerAndOptions(mgr, controllers.AlertReconcilerOptions{
-		MaxConcurrentReconciles: concurrent,
-		RateLimiter:             helper.GetRateLimiter(rateLimiterOptions),
-	}); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Alert")
-		os.Exit(1)
-	}
 	if err = (&controllers.ReceiverReconciler{
 		Client:         mgr.GetClient(),
 		ControllerName: controllerName,
