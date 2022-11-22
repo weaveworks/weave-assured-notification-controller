@@ -108,27 +108,11 @@ type ProviderSpec struct {
 	Suspend bool `json:"suspend,omitempty"`
 }
 
-// ProviderStatus defines the observed state of the Provider.
-type ProviderStatus struct {
-	meta.ReconcileRequestStatus `json:",inline"`
-
-	// Conditions holds the conditions for the Provider.
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-
-	// ObservedGeneration is the last reconciled generation.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-}
-
 // +genclient
 // +genclient:Namespaced
 // +kubebuilder:storageversion
 // +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description=""
-// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description=""
-// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message",description=""
 
 // Provider is the Schema for the providers API.
 type Provider struct {
@@ -136,18 +120,6 @@ type Provider struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec ProviderSpec `json:"spec,omitempty"`
-	// +kubebuilder:default:={"observedGeneration":-1}
-	Status ProviderStatus `json:"status,omitempty"`
-}
-
-// GetConditions returns the status conditions of the object.
-func (in *Provider) GetConditions() []metav1.Condition {
-	return in.Status.Conditions
-}
-
-// SetConditions sets the status conditions on the object.
-func (in *Provider) SetConditions(conditions []metav1.Condition) {
-	in.Status.Conditions = conditions
 }
 
 // +kubebuilder:object:root=true

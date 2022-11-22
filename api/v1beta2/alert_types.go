@@ -59,27 +59,11 @@ type AlertSpec struct {
 	Suspend bool `json:"suspend,omitempty"`
 }
 
-// AlertStatus defines the observed state of the Alert.
-type AlertStatus struct {
-	meta.ReconcileRequestStatus `json:",inline"`
-
-	// Conditions holds the conditions for the Alert.
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-
-	// ObservedGeneration is the last observed generation.
-	// +optional
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-}
-
 // +genclient
 // +genclient:Namespaced
 // +kubebuilder:storageversion
 // +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description=""
-// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status",description=""
-// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message",description=""
 
 // Alert is the Schema for the alerts API
 type Alert struct {
@@ -87,18 +71,6 @@ type Alert struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec AlertSpec `json:"spec,omitempty"`
-	// +kubebuilder:default:={"observedGeneration":-1}
-	Status AlertStatus `json:"status,omitempty"`
-}
-
-// GetConditions returns the status conditions of the object.
-func (in *Alert) GetConditions() []metav1.Condition {
-	return in.Status.Conditions
-}
-
-// SetConditions sets the status conditions on the object.
-func (in *Alert) SetConditions(conditions []metav1.Condition) {
-	in.Status.Conditions = conditions
 }
 
 // +kubebuilder:object:root=true
