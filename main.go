@@ -162,6 +162,24 @@ func main() {
 
 	metricsH := helper.MustMakeMetrics(mgr)
 
+	if err = (&controller.ProviderReconciler{
+		Client:         mgr.GetClient(),
+		ControllerName: controllerName,
+		EventRecorder:  mgr.GetEventRecorderFor(controllerName),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Provider")
+		os.Exit(1)
+	}
+
+	if err = (&controller.AlertReconciler{
+		Client:         mgr.GetClient(),
+		ControllerName: controllerName,
+		EventRecorder:  mgr.GetEventRecorderFor(controllerName),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Alert")
+		os.Exit(1)
+	}
+
 	if err = (&controller.ReceiverReconciler{
 		Client:         mgr.GetClient(),
 		ControllerName: controllerName,
